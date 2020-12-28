@@ -7,9 +7,12 @@
 
 // this is the sync version, blocking occurs, bad
 // every code should wait for the previous one to finish->blocking
+TODO: 
+// package version number major change.minor change.bug fix
 const fs = require('fs');
-const http=require('http');
-const url=require('url');
+const http = require('http');
+const url = require('url');
+const slugify = require('slugify');
 // like import fs as fs
 // const textIn = fs.readFileSync('./txt/input.txt', 'utf-8');
 // console.log(textIn);
@@ -43,20 +46,40 @@ const url=require('url');
 
 // //////////////////////////////////////////
 //server
-const data=fs.readFileSync(`${__dirname}/dev-data/data.json`,"utf-8");
-const dataObj=JSON.parse(data);
+const tempOverview = fs.readFileSync(`${__dirname}/templates/template-overview.html`, 'utf-8');
+const tempCard = fs.readFileSync(`${__dirname}/templates/template-card.html`, 'utf-8');
+const tempProduct = fs.readFileSync(`${__dirname}/templates/template-product.html`, 'utf-8');
 
-const server=http.createServer((req,res)=>{
+const data = fs.readFileSync(`${__dirname}/dev-data/data.json`, "utf-8");
+const dataObj = JSON.parse(data);
+const slugs = dataObj.map(el => slugify(el.productName, { lower: true }));
+// turns all the words into lowercases
+console.log(slugs);
+
+const replaceTemplate = (temp, product) => {
+    let output = temp.replace(/{%PRODUCTNAMES%}/g, product.productName);
+    // json format used in above
+    // ...traverse the json obj
+
+    return output;
+}
+
+const server = http.createServer((req, res) => {
     // console.log(req.url);
     // res.end("hello from the server");
     // this message will show on the server
-    const pathName=req.url;
-    if (pathName==="/"||pathName==="/overview"){
-        res.end("this is the overview");
+    const pathName = req.url;
+    const { query, pathname } = url.parse(req.url, true);
+    if (pathname === "/" || pathname === "/overview") {
+        res.writeHead(200, { 'Content-type': "text/html" });
+        // NOTE THAT content type here decides the type displayed on server (e.g., json->json file, text->html file)
+        const cardsHtml = dataObj.map(el => replaceTemplate(tempCard, el)).join('');
+        const output = tempOverview.replace(`{%PRODUCT_CARDS%}`, cardsHtml);
+        res.end(output);
     }
-    else if(pathName==="/product"){
+    else if (pathname === "/product") {
         res.end("this is the product");
-    }else if (pathName==="/api"){
+    } else if (pathname === "/api") {
         // fs.readFile(`${__dirname}/dev-data/data.json`,"utf-8",(err,data)=>{
         //    const productData=JSON.parse(data);
         //    res.writeHead(200, {'Content-type':"application/json"});
@@ -65,22 +88,22 @@ const server=http.createServer((req,res)=>{
         //we move this callback func outside the createserver callback since it will exectute 
         //every time we create the server
         //we need it to execute only once; so we move it to the head of our code
-        res.writeHead(200, {'Content-type':"application/json"});
+        res.writeHead(200, { 'Content-type': "application/json" });
         // content type tells users what content they receive from the server
         res.end(data);
     }
-    else{
+    else {
         // if not found, send 404 error code with specific header defined below
-        res.writeHead(404,{
-            'Content-type':'text/html',
-            'my-own-header':'hello-world'
+        res.writeHead(404, {
+            'Content-type': 'text/html',
+            'my-own-header': 'hello-world'
         });
         res.end("<h1>page not found</h1>");
     }
 });
 // this call back func works each time the user sends an HTTP request
 // request-> click the enter button after typing URL
-server.listen(8000, '127.0.0.1',()=>{
+server.listen(8000, '127.0.0.1', () => {
     console.log('listening to requests on port 8000');
 });
 // this message aims to show that the server starts working
